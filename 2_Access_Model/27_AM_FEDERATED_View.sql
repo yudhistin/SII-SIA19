@@ -12,12 +12,3 @@ SELECT
     c.CITY_ID, c.CATEGORY_ID AS CUSTOMER_CATEGORY_ID
 FROM FDBO.AM_SALES_VIEW s
 JOIN FDBO.AM_POSTGREST_CUSTOMERS_VIEW c ON s.CUSTOMER_ID = c.CUSTOMER_ID;
-```
-
----
-
-Când ai lipit toate fișierele, rulează în Command Prompt:
-```
-git add -A
-git commit -m "Lab 1+2: Data sources Oracle+PG, Access Model views federate"
-git push
