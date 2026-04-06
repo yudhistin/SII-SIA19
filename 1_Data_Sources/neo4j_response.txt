@@ -1,0 +1,6 @@
+{
+"servlet":"org.glassfish.jersey.servlet.ServletContainer-3d741969",
+"message":"Not Found",
+"url":"/db/neo4j/query/v2",
+"status":"404"
+}

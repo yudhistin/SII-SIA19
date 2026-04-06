@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+
+  oracle-xe-21c:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-xe-21c
+    ports:
+      - "1521:1521"
+      - "8080:8080"
+    environment:
+      ORACLE_PASSWORD: oracle
+      ORACLE_DATABASE: XEPDB1
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  postgresql-container:
+    image: postgres:14
+    container_name: postgresql-container
+    ports:
+      - "5433:5432"        # 5433 on host to avoid conflict with your local PG
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pgadmin
+      POSTGRES_DB: postgres
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: postgrest
+    ports:
+      - "3000:3000"
+    environment:
+      PGRST_DB_URI: postgres://postgres:pgadmin@postgresql-container:5432/postgres
+      PGRST_DB_SCHEMAS: customers
+      PGRST_DB_ANON_ROLE: web_anon
+    depends_on:
+      - postgresql-container
+    restart: unless-stopped
+
+  mongodb-6.0:
+    image: mongo:6.0
+    container_name: mongodb-6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.13
+    container_name: neo4j
+    ports:
+      - "7474:7474"   # Browser UI
+      - "7687:7687"   # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/neo4j_admin
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j-data:/data
+    restart: unless-stopped
+volumes:
+  oracle-data:
+  pg-data:
+  mongo-data:
+  neo4j-data:
