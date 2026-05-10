@@ -1,79 +1,124 @@
- -- DS1: Oracle XE Schema SALES - Data Source
--- SIA19: Integrated Real Estate Market Analysis System
+-- ============================================================
+-- DS1: Oracle XE 21c - External Table for NYC Property Sales
+-- SII-SIA19: Integrated Real Estate Market Analysis System
+--
+-- Dataset: NYC Department of Finance - Rolling Sales
+-- Source : https://www.nyc.gov/site/finance/property/property-rolling-sales-data.page
+-- Files  : rollingsales_manhattan.csv, rollingsales_brooklyn.csv,
+--          rollingsales_queens.csv, rollingsales_bronx.csv,
+--          rollingsales_statenisland.csv
+-- Volume : ~85,000 rows / 12 months (all 5 boroughs combined)
+-- Role   : Historical SOLD transactions (transaction-level granularity)
+-- ============================================================
 
-CREATE USER SALES IDENTIFIED BY sales123
-  DEFAULT TABLESPACE USERS TEMPORARY TABLESPACE TEMP QUOTA UNLIMITED ON USERS;
-GRANT CONNECT, RESOURCE, CREATE SESSION, CREATE TABLE, CREATE VIEW, CREATE SEQUENCE TO SALES;
+-- Pas 1: Create Oracle directory (run as SYS once)
+-- CREATE OR REPLACE DIRECTORY EXT_FILE_DS AS '/opt/oracle/oradata/';
+-- GRANT READ, WRITE ON DIRECTORY EXT_FILE_DS TO FDBO;
 
-CREATE TABLE SALES.PRODUCTS (
-    PRODUCT_ID   NUMBER PRIMARY KEY,
-    PRODUCT_NAME VARCHAR2(100) NOT NULL,
-    CATEGORY     VARCHAR2(50),
-    UNIT_PRICE   NUMBER(10,2),
-    STOCK_QTY    NUMBER
+-- Pas 2: Copy NYC rolling sales CSVs into the Oracle container
+-- docker cp rollingsales_manhattan.csv      oracle-xe-21c:/opt/oracle/oradata/
+-- docker cp rollingsales_brooklyn.csv       oracle-xe-21c:/opt/oracle/oradata/
+-- docker cp rollingsales_queens.csv         oracle-xe-21c:/opt/oracle/oradata/
+-- docker cp rollingsales_bronx.csv          oracle-xe-21c:/opt/oracle/oradata/
+-- docker cp rollingsales_statenisland.csv   oracle-xe-21c:/opt/oracle/oradata/
+
+-- Pas 3: External Table - one per borough (NYC publishes one CSV per borough)
+-- The header layout below matches the 21-column Rolling Sales spec.
+CREATE TABLE FDBO.EXT_NYC_SALES_MANHATTAN (
+    BOROUGH                       NUMBER,
+    NEIGHBORHOOD                  VARCHAR2(60),
+    BUILDING_CLASS_CATEGORY       VARCHAR2(60),
+    TAX_CLASS_AT_PRESENT          VARCHAR2(4),
+    BLOCK                         NUMBER,
+    LOT                           NUMBER,
+    EASEMENT                      VARCHAR2(20),
+    BUILDING_CLASS_AT_PRESENT     VARCHAR2(4),
+    ADDRESS                       VARCHAR2(120),
+    APARTMENT_NUMBER              VARCHAR2(20),
+    ZIP_CODE                      VARCHAR2(10),
+    RESIDENTIAL_UNITS             NUMBER,
+    COMMERCIAL_UNITS              NUMBER,
+    TOTAL_UNITS                   NUMBER,
+    LAND_SQUARE_FEET              VARCHAR2(20),
+    GROSS_SQUARE_FEET             VARCHAR2(20),
+    YEAR_BUILT                    NUMBER,
+    TAX_CLASS_AT_TIME_OF_SALE     VARCHAR2(4),
+    BUILDING_CLASS_AT_TIME_OF_SALE VARCHAR2(4),
+    SALE_PRICE                    VARCHAR2(20),
+    SALE_DATE                     VARCHAR2(20)
+)
+ORGANIZATION EXTERNAL (
+    TYPE ORACLE_LOADER
+    DEFAULT DIRECTORY EXT_FILE_DS
+    ACCESS PARAMETERS (
+        RECORDS DELIMITED BY NEWLINE
+        SKIP 5
+        FIELDS TERMINATED BY ','
+        OPTIONALLY ENCLOSED BY '"'
+        MISSING FIELD VALUES ARE NULL
+    )
+    LOCATION ('rollingsales_manhattan.csv')
+)
+REJECT LIMIT UNLIMITED;
+
+-- Pas 4: Materialized normalized table - convert text to typed columns
+CREATE TABLE FDBO.NYC_PROPERTY_SALES (
+    SALE_ID                       NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    BOROUGH                       NUMBER,
+    BOROUGH_NAME                  VARCHAR2(20),
+    NEIGHBORHOOD                  VARCHAR2(60),
+    BUILDING_CLASS_CATEGORY       VARCHAR2(60),
+    ADDRESS                       VARCHAR2(120),
+    ZIP_CODE                      VARCHAR2(10),
+    RESIDENTIAL_UNITS             NUMBER,
+    COMMERCIAL_UNITS              NUMBER,
+    TOTAL_UNITS                   NUMBER,
+    LAND_SQUARE_FEET              NUMBER,
+    GROSS_SQUARE_FEET             NUMBER,
+    YEAR_BUILT                    NUMBER,
+    SALE_PRICE                    NUMBER,
+    SALE_DATE                     DATE
 );
 
-CREATE TABLE SALES.DEPARTMENTS (
-    DEPARTMENT_ID   NUMBER PRIMARY KEY,
-    DEPARTMENT_NAME VARCHAR2(100),
-    CITY_ID         NUMBER
-);
+-- Pas 5: Load Manhattan (repeat with UNION ALL for the other 4 boroughs)
+INSERT INTO FDBO.NYC_PROPERTY_SALES
+    (BOROUGH, BOROUGH_NAME, NEIGHBORHOOD, BUILDING_CLASS_CATEGORY,
+     ADDRESS, ZIP_CODE, RESIDENTIAL_UNITS, COMMERCIAL_UNITS, TOTAL_UNITS,
+     LAND_SQUARE_FEET, GROSS_SQUARE_FEET, YEAR_BUILT, SALE_PRICE, SALE_DATE)
+SELECT
+    BOROUGH,
+    'MANHATTAN',
+    NEIGHBORHOOD,
+    BUILDING_CLASS_CATEGORY,
+    ADDRESS,
+    ZIP_CODE,
+    RESIDENTIAL_UNITS,
+    COMMERCIAL_UNITS,
+    TOTAL_UNITS,
+    TO_NUMBER(REPLACE(NULLIF(TRIM(LAND_SQUARE_FEET), '-'), ',', ''))   AS LAND_SQUARE_FEET,
+    TO_NUMBER(REPLACE(NULLIF(TRIM(GROSS_SQUARE_FEET), '-'), ',', ''))  AS GROSS_SQUARE_FEET,
+    YEAR_BUILT,
+    TO_NUMBER(REPLACE(NULLIF(TRIM(SALE_PRICE), '-'), ',', ''))         AS SALE_PRICE,
+    TO_DATE(SALE_DATE, 'YYYY-MM-DD')                                   AS SALE_DATE
+FROM FDBO.EXT_NYC_SALES_MANHATTAN
+WHERE TRIM(SALE_PRICE) IS NOT NULL
+  AND TRIM(SALE_PRICE) <> '-'
+  AND TO_NUMBER(REPLACE(SALE_PRICE, ',', '')) > 0;
 
-CREATE TABLE SALES.EMPLOYEES (
-    EMPLOYEE_ID   NUMBER PRIMARY KEY,
-    FIRST_NAME    VARCHAR2(50),
-    LAST_NAME     VARCHAR2(50),
-    DEPARTMENT_ID NUMBER REFERENCES SALES.DEPARTMENTS(DEPARTMENT_ID),
-    EMAIL         VARCHAR2(100),
-    HIRE_DATE     DATE,
-    SALARY        NUMBER(10,2)
-);
-
-CREATE TABLE SALES.SALES (
-    SALE_ID      NUMBER PRIMARY KEY,
-    PRODUCT_ID   NUMBER REFERENCES SALES.PRODUCTS(PRODUCT_ID),
-    EMPLOYEE_ID  NUMBER REFERENCES SALES.EMPLOYEES(EMPLOYEE_ID),
-    CUSTOMER_ID  NUMBER,
-    SALE_DATE    DATE,
-    QUANTITY     NUMBER,
-    UNIT_PRICE   NUMBER(10,2),
-    TOTAL_AMOUNT NUMBER(10,2)
-);
-
--- Seed data
-INSERT INTO SALES.DEPARTMENTS VALUES (1,'Vanzari Nord',1);
-INSERT INTO SALES.DEPARTMENTS VALUES (2,'Vanzari Sud',2);
-INSERT INTO SALES.DEPARTMENTS VALUES (3,'Vanzari Est',3);
-INSERT INTO SALES.DEPARTMENTS VALUES (4,'Vanzari Vest',4);
-
-INSERT INTO SALES.EMPLOYEES VALUES (1,'Ion','Popescu',1,'ion.popescu@firma.ro',DATE '2020-03-15',4500);
-INSERT INTO SALES.EMPLOYEES VALUES (2,'Maria','Ionescu',1,'maria.ionescu@firma.ro',DATE '2019-07-01',5200);
-INSERT INTO SALES.EMPLOYEES VALUES (3,'Andrei','Constantin',2,'andrei.c@firma.ro',DATE '2021-01-10',4800);
-INSERT INTO SALES.EMPLOYEES VALUES (4,'Elena','Dumitrescu',2,'elena.d@firma.ro',DATE '2018-11-20',5500);
-INSERT INTO SALES.EMPLOYEES VALUES (5,'Mihai','Stanescu',3,'mihai.s@firma.ro',DATE '2022-05-03',4200);
-INSERT INTO SALES.EMPLOYEES VALUES (6,'Ana','Georgescu',3,'ana.g@firma.ro',DATE '2020-09-14',4700);
-INSERT INTO SALES.EMPLOYEES VALUES (7,'Cristian','Popa',4,'cristian.p@firma.ro',DATE '2017-06-22',6000);
-INSERT INTO SALES.EMPLOYEES VALUES (8,'Laura','Nistor',4,'laura.n@firma.ro',DATE '2023-02-01',4000);
-
-INSERT INTO SALES.PRODUCTS VALUES (1,'Laptop Dell Inspiron','Electronice',3200,45);
-INSERT INTO SALES.PRODUCTS VALUES (2,'Monitor LG 27"','Electronice',1100,80);
-INSERT INTO SALES.PRODUCTS VALUES (3,'Tastatura Logitech','Periferice',280,150);
-INSERT INTO SALES.PRODUCTS VALUES (4,'Mouse Wireless','Periferice',150,200);
-INSERT INTO SALES.PRODUCTS VALUES (5,'Scaun ergonomic','Mobilier',1800,30);
-INSERT INTO SALES.PRODUCTS VALUES (6,'Birou reglabil','Mobilier',2400,20);
-INSERT INTO SALES.PRODUCTS VALUES (7,'Webcam HD','Periferice',420,90);
-INSERT INTO SALES.PRODUCTS VALUES (8,'Headset Sony','Electronice',650,60);
-
-INSERT INTO SALES.SALES VALUES (1,1,1,101,DATE '2024-01-10',2,3200,6400);
-INSERT INTO SALES.SALES VALUES (2,2,2,102,DATE '2024-01-15',3,1100,3300);
-INSERT INTO SALES.SALES VALUES (3,3,1,103,DATE '2024-02-03',5,280,1400);
-INSERT INTO SALES.SALES VALUES (4,4,3,104,DATE '2024-02-18',2,150,300);
-INSERT INTO SALES.SALES VALUES (5,1,4,105,DATE '2024-03-07',1,3200,3200);
-INSERT INTO SALES.SALES VALUES (6,5,2,106,DATE '2024-03-22',3,1800,5400);
-INSERT INTO SALES.SALES VALUES (7,6,5,107,DATE '2024-04-01',1,2400,2400);
-INSERT INTO SALES.SALES VALUES (8,7,6,108,DATE '2024-04-14',4,420,1680);
-INSERT INTO SALES.SALES VALUES (9,8,7,109,DATE '2024-05-05',2,650,1300);
-INSERT INTO SALES.SALES VALUES (10,3,8,110,DATE '2024-05-20',10,280,2800);
-INSERT INTO SALES.SALES VALUES (11,2,3,101,DATE '2024-06-08',2,1100,2200);
-INSERT INTO SALES.SALES VALUES (12,4,4,102,DATE '2024-06-25',5,150,750);
 COMMIT;
+
+-- Pas 6: Verification
+SELECT BOROUGH_NAME, COUNT(*) NR_SALES,
+       ROUND(AVG(SALE_PRICE), 0)  AVG_PRICE,
+       ROUND(MEDIAN(SALE_PRICE), 0) MEDIAN_PRICE
+FROM FDBO.NYC_PROPERTY_SALES
+GROUP BY BOROUGH_NAME
+ORDER BY NR_SALES DESC;
+
+-- Top neighborhoods by total transaction value (Manhattan example)
+SELECT NEIGHBORHOOD, COUNT(*) NR_SALES, SUM(SALE_PRICE) TOTAL_VOLUME
+FROM FDBO.NYC_PROPERTY_SALES
+WHERE BOROUGH_NAME = 'MANHATTAN'
+GROUP BY NEIGHBORHOOD
+ORDER BY TOTAL_VOLUME DESC
+FETCH FIRST 10 ROWS ONLY;
