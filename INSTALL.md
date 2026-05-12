@@ -149,18 +149,14 @@ You should see `Python 3.x.x`.
 **How to install:**
 1. Go to: https://www.oracle.com/database/sqldeveloper/technologies/db-actions/download/
 2. Find **"Oracle REST Data Services"** and click **Download**. (You may need to log in with your Oracle account from step 0.6.)
-3. You get a `.zip` file. Extract it to a permanent folder, for example `C:\ords\`.
-   Inside you will see a file called `ords.jar` (or just `ords`) and some folders.
-4. Add ORDS to your PATH the same way you added Maven (step 0.4):
-   - Go to **Edit the system environment variables → Environment Variables → System variables → Path → Edit → New**
-   - Add the path to the ORDS folder, e.g. `C:\ords\`
-   - Click OK on all windows.
+3. You get a `.zip` file. **Extract it to `C:\ords\`** — this exact path matters because the commands in Chapter 5 use it.
+   After extracting, you should see a file called **`ords.war`** inside `C:\ords\`.
+4. Create the configuration folder that ORDS will use. Open a Command Prompt and type:
+   ```cmd
+   mkdir C:\ords\config
+   ```
 
-**How to check it worked:** Open a **new** Command Prompt and type:
-```
-ords --version
-```
-You should see something like `Oracle REST Data Services 24.x.x`.
+That is all — **no PATH changes needed**. ORDS is run with `java -jar` so Windows finds it automatically through JDK 17 which you already installed.
 
 ---
 
@@ -357,13 +353,13 @@ ORDS is what turns Oracle database results into web links that the dashboard can
 
 ### Step 5.1 — Configure ORDS to connect to Oracle
 
-Open a **new** Command Prompt window. Run this command (all on one line — copy and paste it):
+Open a **new** Command Prompt window. Copy and paste this command exactly as written, then press Enter:
 
 ```cmd
-ords --config C:\ords-config install --admin-user SYS --db-hostname localhost --db-port 1521 --db-servicename XEPDB1 --feature-sdw true --password-stdin
+java -jar C:\ords\ords.war --config C:\ords\config install --admin-user SYS --db-hostname localhost --db-port 1521 --db-servicename XEPDB1 --feature-sdw true --password-stdin
 ```
 
-It will ask you for the **SYS password**. Type: `OraclePass123` and press Enter.
+It will ask you for the **SYS password**. Type `OraclePass123` and press Enter.
 
 It will then ask about the ORDS schema password and the APEX passwords. You can press **Enter** to accept the defaults for all of them.
 
@@ -402,7 +398,7 @@ This creates seven REST endpoints (web links) inside Oracle — one for each typ
 Go back to your Command Prompt (or open a new one) and run:
 
 ```cmd
-ords --config C:\ords-config serve --port 8181
+java -jar C:\ords\ords.war --config C:\ords\config serve --port 8181
 ```
 
 ORDS will start and print some startup messages. Leave this Command Prompt window open — **closing it stops ORDS**.
