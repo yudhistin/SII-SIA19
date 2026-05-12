@@ -1,0 +1,36 @@
+server:
+  port: 8094
+
+spring:
+  application:
+    name: DSA-SparkSQL-Service
+  main:
+    # Spark UI tries to bind a thread name that Spring's lifecycle dislikes
+    allow-bean-definition-overriding: true
+
+spark:
+  app-name: DSA-SparkSQL-Service
+  master: local[*]
+  warehouse-dir: ${user.home}/sparksql-warehouse
+  thrift:
+    enabled: false   # set true to expose jdbc:hive2://localhost:10000 for DBeaver
+    port: 10000
+
+app:
+  csv:
+    # Absolute path - safest with how Spring Boot resolves working dir
+    macro-path: file:///E:/Matei/School/Master/Anul2/SII/SII-SIA19/1_Data_Sources/13_DS_CSV_MacroIndicators.csv
+  sql:
+    scripts-dir: ../sql
+  postgres:
+    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=rentals
+    user: postgres
+    pass: pg
+  mongo:
+    uri: mongodb://localhost:27017/realestate
+
+# Quiet the Spark startup logs a bit
+logging:
+  level:
+    org.apache.spark: WARN
+    org.sparkproject: WARN

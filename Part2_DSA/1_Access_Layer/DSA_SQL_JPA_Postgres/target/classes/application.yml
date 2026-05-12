@@ -1,0 +1,17 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: DSA_SQL_JPA_Postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=rentals
+    username: postgres
+    password: pg
+  jpa:
+    properties:
+      hibernate.default_schema: rentals
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false

@@ -15,7 +15,8 @@
 -- CREATE OR REPLACE DIRECTORY EXT_FILE_DS AS '/opt/oracle/oradata/';
 -- GRANT READ, WRITE ON DIRECTORY EXT_FILE_DS TO FDBO;
 
--- Pas 2: Copy NYC rolling sales CSVs into the Oracle container
+-- Pas 2: NYC publishes the rolling sales as XLSX. Convert each to CSV first
+-- (helper script: prepare_data.py converts all 5 boroughs in one run), then:
 -- docker cp rollingsales_manhattan.csv      oracle-xe-21c:/opt/oracle/oradata/
 -- docker cp rollingsales_brooklyn.csv       oracle-xe-21c:/opt/oracle/oradata/
 -- docker cp rollingsales_queens.csv         oracle-xe-21c:/opt/oracle/oradata/
@@ -99,7 +100,8 @@ SELECT
     TO_NUMBER(REPLACE(NULLIF(TRIM(GROSS_SQUARE_FEET), '-'), ',', ''))  AS GROSS_SQUARE_FEET,
     YEAR_BUILT,
     TO_NUMBER(REPLACE(NULLIF(TRIM(SALE_PRICE), '-'), ',', ''))         AS SALE_PRICE,
-    TO_DATE(SALE_DATE, 'YYYY-MM-DD')                                   AS SALE_DATE
+    -- NYC publishes SALE DATE as a timestamp (YYYY-MM-DD HH24:MI:SS).
+    TO_DATE(SUBSTR(TRIM(SALE_DATE), 1, 19), 'YYYY-MM-DD HH24:MI:SS')   AS SALE_DATE
 FROM FDBO.EXT_NYC_SALES_MANHATTAN
 WHERE TRIM(SALE_PRICE) IS NOT NULL
   AND TRIM(SALE_PRICE) <> '-'

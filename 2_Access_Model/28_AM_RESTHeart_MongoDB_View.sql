@@ -13,6 +13,9 @@
 --   Mount:         /realestate/forsale  (collection realestate.forsale)
 -- ============================================================
 
+-- Disable substitution-variable prompting (URL contains '?' and '&')
+SET DEFINE OFF;
+
 -- ---------- Pas 1: ACL access for FDBO -> RESTHeart host ----------
 -- Run as SYS once (skip if already granted by 26_AM_POSTGREST_Rentals_View.sql):
 BEGIN
@@ -65,11 +68,12 @@ END;
 
 -- ---------- Pas 3: Remote MongoDB collection view ----------
 -- Note: RESTHeart returns the collection as a JSON array of docs.
--- Adjust pagesize / page parameters as needed.
+-- rep=s         -> Standard representation (plain JSON array, not HAL-wrapped)
+-- pagesize=1000 -> RESTHeart's per-request cap; for >1000 docs, page through
 CREATE OR REPLACE VIEW FDBO.V_REALTOR_FORSALE AS
 WITH json_doc AS (
     SELECT FDBO.GET_RESTHEART_DATA(
-        'http://host.docker.internal:8080/realestate/forsale?pagesize=5000&filter={"status":"for_sale"}',
+        'http://host.docker.internal:8080/realestate/forsale?pagesize=1000&rep=s&filter={"status":"for_sale"}',
         'admin:secret'
     ) doc FROM dual
 )

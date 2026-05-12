@@ -30,6 +30,25 @@ BEGIN
 END;
 /
 
+-- CORS: allow the static dashboard. Older ORDS versions don't accept
+-- p_origins_allowed in DEFINE_MODULE, so set it via UPDATE_MODULE.
+BEGIN
+    ORDS.UPDATE_MODULE(
+        p_module_name      => 'realestate.v1',
+        p_origins_allowed  => '*');
+    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Fallback for ORDS versions where UPDATE_MODULE also lacks the param;
+        -- run as SYS@XEPDB1:
+        --   UPDATE ORDS_METADATA.ORDS_MODULES
+        --   SET    ORIGINS_ALLOWED = '*'
+        --   WHERE  NAME = 'realestate.v1';
+        --   COMMIT;
+        DBMS_OUTPUT.PUT_LINE('UPDATE_MODULE not available - apply CORS via SYS table update.');
+END;
+/
+
 
 -- -------------------------------------------------------------
 -- ENDPOINT 1:  GET /sales/cube
@@ -175,21 +194,22 @@ END;
 
 
 -- -------------------------------------------------------------
--- VERIFY MODULE
+-- VERIFY MODULE  (column names valid for ORDS 22.x+)
 -- -------------------------------------------------------------
-SELECT module_name, base_path, status FROM user_ords_modules
-WHERE  module_name = 'realestate.v1';
+SELECT name, uri_prefix, status FROM user_ords_modules
+WHERE  name = 'realestate.v1';
 
-SELECT pattern, http_methods FROM user_ords_templates t
-JOIN   user_ords_handlers h ON h.template_id = t.id
-WHERE  t.module_id IN (SELECT id FROM user_ords_modules WHERE module_name = 'realestate.v1')
-ORDER BY pattern;
+SELECT t.uri_template, h.method
+FROM   user_ords_templates t
+JOIN   user_ords_handlers  h ON h.template_id = t.id
+WHERE  t.module_id IN (SELECT id FROM user_ords_modules WHERE name = 'realestate.v1')
+ORDER BY t.uri_template;
 
 -- After running, the endpoints will be available at (assuming ORDS on :8080):
---   http://localhost:8080/ords/fdbo/realestate/v1/sales/cube
---   http://localhost:8080/ords/fdbo/realestate/v1/sales/vs-mortgage
---   http://localhost:8080/ords/fdbo/realestate/v1/forsale/ppsf-by-state
---   http://localhost:8080/ords/fdbo/realestate/v1/rentals/yield
---   http://localhost:8080/ords/fdbo/realestate/v1/agents/top
---   http://localhost:8080/ords/fdbo/realestate/v1/geo/coverage
---   http://localhost:8080/ords/fdbo/realestate/v1/federated/properties
+--   http://localhost:8181/ords/fdbo/realestate/v1/sales/cube
+--   http://localhost:8181/ords/fdbo/realestate/v1/sales/vs-mortgage
+--   http://localhost:8181/ords/fdbo/realestate/v1/forsale/ppsf-by-state
+--   http://localhost:8181/ords/fdbo/realestate/v1/rentals/yield
+--   http://localhost:8181/ords/fdbo/realestate/v1/agents/top
+--   http://localhost:8181/ords/fdbo/realestate/v1/geo/coverage
+--   http://localhost:8181/ords/fdbo/realestate/v1/federated/properties

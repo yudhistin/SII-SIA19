@@ -1,0 +1,11 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: DSA_DOC_XLSx
+
+app:
+  macro:
+    # Adjust to the absolute path on your machine if running outside the repo
+    csv-path: ../../../1_Data_Sources/13_DS_CSV_MacroIndicators.csv

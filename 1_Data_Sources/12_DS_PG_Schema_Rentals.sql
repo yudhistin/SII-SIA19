@@ -83,7 +83,11 @@ CREATE TABLE IF NOT EXISTS rentals.stg_listing (
     maximum_nights_avg_ntm TEXT, calendar_updated TEXT, has_availability TEXT,
     availability_30 TEXT, availability_60 TEXT, availability_90 TEXT,
     availability_365 TEXT, calendar_last_scraped TEXT, number_of_reviews TEXT,
-    number_of_reviews_ltm TEXT, number_of_reviews_l30d TEXT, first_review TEXT,
+    number_of_reviews_ltm TEXT, number_of_reviews_l30d TEXT,
+    -- Columns added in 2024+ snapshots of Inside Airbnb data:
+    availability_eoy TEXT, number_of_reviews_ly TEXT,
+    estimated_occupancy_l365d TEXT, estimated_revenue_l365d TEXT,
+    first_review TEXT,
     last_review TEXT, review_scores_rating TEXT, review_scores_accuracy TEXT,
     review_scores_cleanliness TEXT, review_scores_checkin TEXT,
     review_scores_communication TEXT, review_scores_location TEXT,

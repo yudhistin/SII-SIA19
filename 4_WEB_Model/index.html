@@ -36,16 +36,23 @@
   h1 .accent { color: var(--accent); }
   .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
   .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 20px;
+    align-items: flex-start;
   }
   .card {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 20px;
+    width: fit-content;
+    min-width: 320px;
+    max-width: 100%;
+    flex: 0 1 auto;
   }
+  .card table { width: max-content; min-width: 100%; }
+  .card td, .card th { white-space: nowrap; }
   .card h2 {
     font-family: 'Syne', sans-serif;
     font-size: 15px;
@@ -113,7 +120,7 @@
   <div class="subtitle">Federated views over NYC DOF + Inside Airbnb + Realtor.com + Neo4j Geo + FRED Macro -- served via Oracle ORDS REST</div>
 
   <div class="toolbar">
-    <input id="ordsBase" value="http://localhost:8080/ords/fdbo/realestate/v1" />
+    <input id="ordsBase" value="http://localhost:8182/ords/fdbo/realestate/v1" />
     <button onclick="loadAll()">Reload all</button>
   </div>
 
@@ -171,13 +178,21 @@ function fmt(v) {
   if (typeof v === 'number') return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(2);
   return String(v);
 }
+function pick(row, key) {
+  // ORDS returns lowercase JSON keys; tolerate both.
+  if (row == null) return undefined;
+  if (key in row) return row[key];
+  const lk = key.toLowerCase();
+  if (lk in row) return row[lk];
+  return undefined;
+}
 function renderTable(rows, cols) {
   if (!rows || rows.length === 0) return '<div class="empty">No rows.</div>';
   const head = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
   const body = rows.slice(0, 20).map(r =>
     '<tr>' + cols.map(c => {
       const cls = NUM_COLS.has(c) ? 'num' : '';
-      return `<td class="${cls}">${fmt(r[c])}</td>`;
+      return `<td class="${cls}">${fmt(pick(r, c))}</td>`;
     }).join('') + '</tr>'
   ).join('');
   return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
@@ -191,7 +206,9 @@ async function fetchEndpoint(base, ep) {
     const r = await fetch(base + ep.path);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
-    target.innerHTML = renderTable(j.items || [], ep.cols);
+    // ORDS returns { items: [...] }; the DSA WEB layer returns a raw array.
+    const rows = Array.isArray(j) ? j : (j.items || []);
+    target.innerHTML = renderTable(rows, ep.cols);
   } catch (err) {
     target.innerHTML = `<div class="empty"><span class="status err">Error</span> ${err.message}</div>`;
   }

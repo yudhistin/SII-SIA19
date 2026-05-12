@@ -1,0 +1,150 @@
+# =============================================================
+# SII-SIA19 - Integrated Real Estate Market Analysis System
+# Six-service stack reproducing the federation environment.
+#
+# Bring up:    docker compose up -d
+# Tear down:   docker compose down            (keeps volumes)
+# Wipe data:   docker compose down -v         (removes volumes)
+#
+# Credentials (override in .env if you need to change them):
+#   POSTGRES_PASSWORD    -> Postgres superuser
+#   ORACLE_PASSWORD      -> SYS / SYSTEM password for the oracle-xe-21c container
+#   NEO4J_AUTH           -> neo4j/test1234   (matches 29_AM_Neo4J_View.sql)
+#   RESTHEART admin      -> admin:secret     (matches 28_AM_RESTHeart_MongoDB_View.sql)
+# =============================================================
+name: sii-sia19
+
+networks:
+  realestate:
+    driver: bridge
+
+volumes:
+  pg_data:
+  mongo_data:
+  neo4j_data:
+  neo4j_logs:
+  oracle_data:
+
+services:
+
+  postgresql-container:
+    image: postgres:14
+    container_name: postgresql-container
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./1_Data_Sources:/data:ro
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - realestate
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: postgrest
+    restart: unless-stopped
+    depends_on:
+      postgresql-container:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgresql-container:5432/postgres
+      PGRST_DB_SCHEMAS: rentals
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_SERVER_HOST: 0.0.0.0
+      PGRST_SERVER_PORT: "3000"
+    ports:
+      - "3000:3000"
+    networks:
+      - realestate
+
+  mongodb-6.0:
+    image: mongo:6.0
+    container_name: mongodb-6.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./1_Data_Sources:/data/source:ro
+      - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - realestate
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  restheart:
+    image: softinstigate/restheart:latest
+    container_name: restheart
+    restart: unless-stopped
+    depends_on:
+      mongodb-6.0:
+        condition: service_healthy
+    environment:
+      # /http-listener/host->"0.0.0.0" is REQUIRED so Docker can forward
+      # the published 8080 port into the container. RESTHeart's default
+      # localhost binding silently drops external connections.
+      RHO: '/http-listener/host->"0.0.0.0";/mclient/connection-string->"mongodb://mongodb-6.0:27017";/mongo/mongo-mounts->[{"what":"/realestate","where":"/realestate"}]'
+    ports:
+      - "8080:8080"
+    networks:
+      - realestate
+
+  neo4j:
+    image: neo4j:5
+    container_name: neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/test1234}
+      NEO4J_server_http_listen__address: ":7474"
+      NEO4J_server_bolt_listen__address: ":7687"
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./1_Data_Sources:/var/lib/neo4j/import:ro
+    networks:
+      - realestate
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  oracle-xe-21c:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-xe-21c
+    restart: unless-stopped
+    shm_size: 1g
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-OraclePass123}
+      APP_USER: FDBO
+      APP_USER_PASSWORD: ${FDBO_PASSWORD:-fdbo}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+      # Mount the data sources folder so external-table CSVs are reachable
+      # at /opt/oracle/oradata/source from inside the container.
+      - ./1_Data_Sources:/opt/oracle/oradata/source:ro
+    networks:
+      - realestate
+    healthcheck:
+      test: ["CMD", "/opt/oracle/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s

@@ -9,7 +9,7 @@
 -- Endpoint assumptions:
 --   Neo4j Community 5.x running locally with default Query API enabled.
 --   Endpoint:    http://host.docker.internal:7474/db/neo4j/query/v2
---   Credentials: neo4j / neo4j_admin   (change to whatever you set)
+--   Credentials: neo4j / test1234
 -- ============================================================
 
 -- ---------- Pas 1: ACL access (skip if granted earlier) ----------
@@ -83,7 +83,7 @@ WITH json_doc AS (
         'http://host.docker.internal:7474/db/neo4j/query/v2',
         'MATCH (nh:Neighborhood)-[:PART_OF]->(ci:City)-[:PART_OF]->(rg:Region)-[:PART_OF]->(co:Country) '
         || 'RETURN co.code, co.name, rg.code, rg.name, ci.id, ci.name, nh.id, nh.name',
-        'neo4j', 'neo4j_admin'
+        'neo4j', 'test1234'
     ) doc FROM dual
 )
 SELECT *

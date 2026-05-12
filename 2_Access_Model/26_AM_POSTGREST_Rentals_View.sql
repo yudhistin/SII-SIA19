@@ -13,6 +13,9 @@
 --   Tables:        /listing  and  /host
 -- ============================================================
 
+-- Disable substitution-variable prompting (URLs contain '?' and '&')
+SET DEFINE OFF;
+
 -- ---------- Pas 1: ACL access for FDBO -> PostgREST host ----------
 -- Run as SYS (one-off):
 BEGIN

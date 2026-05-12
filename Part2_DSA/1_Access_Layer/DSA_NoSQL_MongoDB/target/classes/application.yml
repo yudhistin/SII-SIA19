@@ -1,0 +1,10 @@
+server:
+  port: 8093
+
+spring:
+  application:
+    name: DSA_NoSQL_MongoDB
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/realestate
+      database: realestate

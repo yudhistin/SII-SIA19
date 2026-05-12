@@ -1,0 +1,17 @@
+server:
+  port: 8095
+
+spring:
+  application:
+    name: DSA_WEB_RESTService
+
+app:
+  # 'hive'  -> use Hive JDBC against Spark Thrift Server (port 10000)
+  # 'http'  -> hit DSA-SparkSQL-Service's /sql endpoint directly
+  driver: http
+  hive:
+    url: jdbc:hive2://localhost:10000/default
+    user: hive
+    pass: hive
+  spark:
+    http-url: http://localhost:8094
