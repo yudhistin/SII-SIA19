@@ -18,8 +18,11 @@ spark:
 
 app:
   csv:
-    # Absolute path - safest with how Spring Boot resolves working dir
-    macro-path: file:///E:/Matei/School/Master/Anul2/SII/SII-SIA19/1_Data_Sources/13_DS_CSV_MacroIndicators.csv
+    # Path to the FRED macro CSV.
+    # Uses ${user.dir} which equals the module folder when run from IntelliJ or
+    # via "mvn spring-boot:run" from the DSA-SparkSQL-Service directory.
+    # On Windows use forward slashes or double-backslashes inside the file: URI.
+    macro-path: file:///${user.dir}/../../../1_Data_Sources/13_DS_CSV_MacroIndicators.csv
   sql:
     scripts-dir: ../sql
   postgres:

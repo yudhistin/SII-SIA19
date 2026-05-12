@@ -1,2 +1,21 @@
-online_retail_array.json 
-online_retail_sample.json 
+# Old retail sample files (replaced by real-estate datasets)
+online_retail_array.json
+online_retail_sample.json
+
+# Maven build output — never commit compiled classes
+target/
+
+# IntelliJ workspace files (each developer has their own)
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/shelf/
+
+# Environment secrets — each developer creates their own from .env.example
+.env
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# macOS noise
+.DS_Store
