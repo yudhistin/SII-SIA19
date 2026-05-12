@@ -216,16 +216,56 @@ docker ps
 
 You should see 6 rows, each showing **`Up`** in the STATUS column. If any row shows `Exited`, wait one more minute and run `docker ps` again — Oracle is especially slow to start (it takes 2–3 minutes).
 
-### Step 2.4 — PostgreSQL and MongoDB load data by themselves
+### Step 2.4 — Copy data files into the containers
 
-Good news: the two hardest databases (PostgreSQL and MongoDB) load all their data **automatically** the first time they start. You do not need to do anything.
+The databases need the CSV and JSON data files to be placed inside the containers before any data can be loaded. Run every command below from inside the `SII-SIA19` project folder.
 
-To confirm it worked, run:
+> **What is `docker cp`?**
+> Think of it like copying a file from your desktop into a USB stick — except the "USB stick" is the container running inside Docker.
+
+**Oracle — 6 files (required — Oracle cannot read them any other way):**
+
+Oracle's external tables expect the CSV files at a specific internal path (`/opt/oracle/oradata/`). You must copy them there manually.
+
+```cmd
+docker cp 1_Data_Sources\rollingsales_manhattan.csv   oracle-xe-21c:/opt/oracle/oradata/
+docker cp 1_Data_Sources\rollingsales_brooklyn.csv    oracle-xe-21c:/opt/oracle/oradata/
+docker cp 1_Data_Sources\rollingsales_bronx.csv       oracle-xe-21c:/opt/oracle/oradata/
+docker cp 1_Data_Sources\rollingsales_queens.csv      oracle-xe-21c:/opt/oracle/oradata/
+docker cp 1_Data_Sources\rollingsales_statenisland.csv oracle-xe-21c:/opt/oracle/oradata/
+docker cp 1_Data_Sources\13_DS_CSV_MacroIndicators.csv oracle-xe-21c:/opt/oracle/oradata/
+```
+
+Each command should finish in a few seconds and print something like `Successfully copied`.
+
+**PostgreSQL — 1 file:**
+
+PostgreSQL tries to load the rental listings automatically on first start. If it worked (you will check in Step 2.5), you can skip this. If it did not work, run:
+
+```cmd
+docker cp 1_Data_Sources\listings_amsterdam.csv postgresql-container:/tmp/
+```
+
+**MongoDB — 1 file:**
+
+Same as PostgreSQL — MongoDB tries to load automatically. If it did not work, run:
+
+```cmd
+docker cp 1_Data_Sources\realtor_listings.jsonl mongodb-6.0:/tmp/
+```
+
+---
+
+### Step 2.5 — Confirm PostgreSQL and MongoDB loaded their data
+
+PostgreSQL and MongoDB load their data **automatically** the first time they start (from the files inside the container). Let's check it worked:
+
 ```cmd
 docker logs postgresql-container 2>&1 | findstr /i "loaded Done ERROR"
 docker logs mongodb-6.0 2>&1 | findstr /i "docs: Done ERROR"
 ```
-You should see row counts and the word "Done" — not "ERROR". If you see "not found - skip seeding", jump to the Troubleshooting section at the end of this guide.
+
+You should see row counts and the word "Done" with no "ERROR". If you see `"not found - skip seeding"`, it means the auto-load did not find the file — go back to Step 2.4 and run the `docker cp` command for that container, then follow the manual import steps in the Troubleshooting section at the end of this guide.
 
 ---
 
